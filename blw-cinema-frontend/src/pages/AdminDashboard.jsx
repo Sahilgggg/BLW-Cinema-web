@@ -21,12 +21,12 @@ function AdminDashboard() {
   }, []);
 
   const fetchMovies = async () => {
-    const res = await fetch('http://localhost:5000/api/movies');
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/movies`);
     setMovies(await res.json());
   };
 
   const fetchPendingUsers = async () => {
-    const res = await fetch('http://localhost:5000/api/auth/pending-users', {
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/auth/pending-users`, {
       headers: { Authorization: `Bearer ${user.token}` }
     });
     if (res.ok) setPendingUsers(await res.json());
@@ -49,7 +49,7 @@ function AdminDashboard() {
     if (posterFile) formData.append('poster', posterFile);
 
     try {
-      const response = await fetch('http://localhost:5000/api/movies', {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/movies`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${user.token}` },
         body: formData, 
@@ -72,7 +72,7 @@ function AdminDashboard() {
 
   const handleRemoveMovie = async (id) => {
     if (!window.confirm("Delete movie?")) return;
-    const res = await fetch(`http://localhost:5000/api/movies/${id}`, {
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/movies/${id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${user.token}` },
     });
@@ -81,14 +81,14 @@ function AdminDashboard() {
 
   // --- USER APPROVALS ---
   const handleApproveUser = async (id) => {
-    const res = await fetch(`http://localhost:5000/api/auth/approve-user/${id}`, {
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/auth/approve-user/${id}`, {
       method: 'PUT', headers: { Authorization: `Bearer ${user.token}` }
     });
     if (res.ok) fetchPendingUsers();
   };
 
   const handleRejectUser = async (id) => {
-    const res = await fetch(`http://localhost:5000/api/auth/reject-user/${id}`, {
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/auth/reject-user/${id}`, {
       method: 'DELETE', headers: { Authorization: `Bearer ${user.token}` }
     });
     if (res.ok) fetchPendingUsers();

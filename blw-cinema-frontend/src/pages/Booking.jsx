@@ -33,7 +33,7 @@ function Booking() {
   useEffect(() => {
     const fetchBookedSeats = async () => {
       try {
-        const response = await fetch(`http://localhost:5000/api/bookings/movie/${id}`);
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/bookings/movie/${id}`);
         if (response.ok) {
           const data = await response.json();
           setBookedSeats(data); // Array of seat IDs like ['A1', 'C4']
@@ -80,7 +80,7 @@ function Booking() {
       }
 
       // Step B: Create the order on your Node backend
-      const orderResponse = await fetch('http://localhost:5000/api/payments/order', {
+      const orderResponse = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/payments/order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -102,7 +102,7 @@ function Booking() {
         order_id: orderData.id,
         handler: async function (response) {
           // Step D: Razorpay success! Now verify signature on backend
-          const verifyRes = await fetch('http://localhost:5000/api/payments/verify', {
+          const verifyRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/payments/verify`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -117,7 +117,7 @@ function Booking() {
 
           if (verifyRes.ok) {
             // Step E: Signature verified. Now actually lock the seats and save the booking!
-            const bookingRes = await fetch('http://localhost:5000/api/bookings', {
+            const bookingRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/bookings`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

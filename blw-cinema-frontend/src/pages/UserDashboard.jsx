@@ -14,7 +14,7 @@ function UserDashboard() {
   useEffect(() => {
     const fetchMyTickets = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/bookings/my-tickets', {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/bookings/my-tickets`, {
           headers: { Authorization: `Bearer ${user.token}` }
         });
         if (response.ok) {

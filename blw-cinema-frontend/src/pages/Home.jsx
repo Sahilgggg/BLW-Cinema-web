@@ -22,7 +22,7 @@ function Home() {
   useEffect(() => {
     const fetchMovies = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/movies');
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/movies`);
         const data = await response.json();
         setMovies(data);
         setLoading(false);
