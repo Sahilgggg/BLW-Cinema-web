@@ -49,6 +49,10 @@ function Login() {
       if (res.ok) {
         setTempUserId(data.userId);
         setSuccessMessage(data.message);
+        
+        // 👇 THIS IS THE ONLY LINE ADDED FOR THE DEMO MODE ALERT 👇
+        alert(`DEMO MODE - Your Verification Code is: ${data.otp}`);
+
         setView('otp'); // Switch screen to OTP
       } else {
         setErrorMessage(data.message);

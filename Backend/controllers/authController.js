@@ -1,6 +1,6 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-const twilio = require('twilio'); 
+const twilio = require('twilio'); // Left this in case you still want SMS fallback later
 
 // --- HELPER FUNCTIONS ---
 const generateToken = (id) => {
@@ -48,93 +48,34 @@ exports.registerUser = async (req, res) => {
     });
 
     // ==========================================
-    // ROUTE A: ADMIN -> SEND VIA GOOGLE SCRIPT
+    // ROUTE A: ADMIN -> DEMO BYPASS (RETURN IN API)
     // ==========================================
     if (requestedRole === 'admin') {
-      try {
-        const response = await fetch(process.env.GOOGLE_SCRIPT_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            to: process.env.EMAIL_USER, // Sends to your master email
-            subject: `🚨 ADMIN REQUEST: New Registration (${name})`,
-            html: `
-              <div style="font-family: Arial, sans-serif; padding: 20px; border: 2px solid #D4AF37;">
-                <h2 style="color: #D4AF37;">Admin Registration Attempt</h2>
-                <p>Someone is trying to register as an Admin:</p>
-                <ul>
-                  <li><strong>Name:</strong> ${name}</li>
-                  <li><strong>Email:</strong> ${email || 'None'}</li>
-                  <li><strong>Mobile:</strong> ${mobile || 'None'}</li>
-                </ul>
-                <p>To authorize this admin, enter this OTP on their screen:</p>
-                <h1 style="background: #eee; padding: 10px; text-align: center;">${otp}</h1>
-              </div>
-            `
-          })
-        });
-
-        const result = await response.json();
-
-        if (result.status === "Success") {
-          console.log(`\n📩 ADMIN LOG: Google API OTP for ${name} sent.\n`);
-          return res.status(201).json({ 
-            message: 'Admin request submitted. Please contact the Master Admin for your verification code.', 
-            userId: user._id 
-          });
-        } else {
-          throw new Error(result.message || 'Google Script failed');
-        }
-
-      } catch (error) {
-        console.error('\n🚨 Google Admin Error:', error);
-        return res.status(500).json({ message: 'Failed to send Admin alert.' });
-      }
+      console.log(`\n🚀 DEMO MODE: Admin OTP for ${name} generated: ${otp}\n`);
+      
+      return res.status(201).json({ 
+        message: 'Admin request submitted.', 
+        otp: otp, // Sends OTP directly to the frontend
+        userId: user._id 
+      });
     } 
     
     // ==========================================
-    // ROUTE B: USER -> SEND VIA GOOGLE SCRIPT
+    // ROUTE B: USER -> DEMO BYPASS (RETURN IN API)
     // ==========================================
     else {
-      // Priority 1: User's Email
+      // Priority 1: User's Email (Bypassed to Frontend)
       if (email) {
-        try {
-          const response = await fetch(process.env.GOOGLE_SCRIPT_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              to: email, // Sends to the USER's email
-              subject: 'BLW Cinema - Verify Your Account',
-              html: `
-                <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
-                  <h2>Welcome to BLW Cinema, ${name}!</h2>
-                  <p>Your account verification OTP is:</p>
-                  <h1 style="color: #D4AF37; letter-spacing: 5px;">${otp}</h1>
-                  <p>This code will expire in 10 minutes.</p>
-                </div>
-              `
-            })
-          });
+        console.log(`\n🚀 DEMO MODE: User OTP generated for ${email}: ${otp}\n`);
 
-          const result = await response.json();
-
-          if (result.status === "Success") {
-            console.log(`\n📩 USER LOG: Google API OTP sent to ${email}\n`);
-            return res.status(201).json({ 
-              message: 'Registration successful! Check your email for the OTP.', 
-              userId: user._id 
-            });
-          } else {
-            throw new Error(result.message || 'Google Script failed');
-          }
-
-        } catch (error) {
-          console.error('\n🚨 Google User Error:', error);
-          return res.status(500).json({ message: 'Email Failed. Check script setup.' });
-        }
+        return res.status(201).json({ 
+          message: 'Registration successful!', 
+          otp: otp, // Sends OTP directly to the frontend
+          userId: user._id 
+        });
       } 
       
-      // Priority 2: User's Mobile (Fallback)
+      // Priority 2: User's Mobile (Fallback - Left active for Twilio if needed)
       else if (mobile) {
         try {
           const formattedMobile = mobile.startsWith('+') ? mobile : `+91${mobile}`;
