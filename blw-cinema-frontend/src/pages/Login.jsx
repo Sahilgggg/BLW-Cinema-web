@@ -4,7 +4,6 @@ import { AuthContext } from '../context/AuthContext';
 
 function Login() {
   const navigate = useNavigate();
-  const { dispatch } = useContext(AuthContext);
   // Remove 'dispatch' and bring in 'login'
   const { login } = useContext(AuthContext);
 
@@ -28,6 +27,9 @@ function Login() {
   const [tempUserId, setTempUserId] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  
+  // 👇 NEW STATE: Holds the OTP to display on the card 👇
+  const [demoOtp, setDemoOtp] = useState(null);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -50,8 +52,8 @@ function Login() {
         setTempUserId(data.userId);
         setSuccessMessage(data.message);
         
-        // 👇 THIS IS THE ONLY LINE ADDED FOR THE DEMO MODE ALERT 👇
-        alert(`DEMO MODE - Your Verification Code is: ${data.otp}`);
+        // 👇 Replaced alert() with React State 👇
+        setDemoOtp(data.otp); 
 
         setView('otp'); // Switch screen to OTP
       } else {
@@ -78,6 +80,7 @@ function Login() {
         setSuccessMessage('Verified successfully! You can now log in.');
         setView('login'); // Switch screen back to Login
         setOtp('');
+        setDemoOtp(null); // Clear the demo banner
       } else {
         setErrorMessage(data.message);
       }
@@ -99,7 +102,6 @@ function Login() {
       });
       const data = await res.json();
       if (res.ok) {
-        // Use the 'login' function from your AuthContext
         login(data);
         navigate('/');
       } else {
@@ -218,10 +220,10 @@ function Login() {
       padding: isMobile ? '13px 14px' : '10px 12px',
       color: '#e8dcc8',
       fontFamily: "'DM Sans', sans-serif",
-      fontSize: isMobile ? '16px' : '13px', // 16px prevents iOS zoom on focus
+      fontSize: isMobile ? '16px' : '13px', 
       outline: 'none',
       marginBottom: '16px',
-      WebkitAppearance: 'none', // removes iOS default styling
+      WebkitAppearance: 'none', 
     },
     otpInput: {
       width: '100%',
@@ -253,7 +255,7 @@ function Login() {
       background: 'linear-gradient(90deg, #9b2020, #c0392b)',
       color: '#ffffff',
       marginTop: '4px',
-      WebkitTapHighlightColor: 'transparent', // removes tap flash on mobile
+      WebkitTapHighlightColor: 'transparent',
     },
     btnGold: {
       width: '100%',
@@ -317,6 +319,32 @@ function Login() {
       color: '#5dbf8a',
       fontFamily: "'DM Sans', sans-serif",
     },
+    // 👇 NEW: Stylish Banner for the Demo OTP 👇
+    demoBanner: {
+      backgroundColor: 'rgba(201, 146, 10, 0.1)',
+      border: '1px dashed rgba(201, 146, 10, 0.5)',
+      borderRadius: '6px',
+      padding: '16px',
+      marginBottom: '24px',
+      textAlign: 'center',
+    },
+    demoBannerLabel: {
+      fontSize: '10px',
+      fontFamily: "'DM Sans', sans-serif",
+      fontWeight: 700,
+      textTransform: 'uppercase',
+      letterSpacing: '0.15em',
+      color: '#e8dcc8',
+      marginBottom: '8px'
+    },
+    demoBannerCode: {
+      fontSize: '28px',
+      fontFamily: "'DM Sans', sans-serif",
+      fontWeight: 800,
+      letterSpacing: '0.2em',
+      color: '#f0c040',
+      textShadow: '0 0 10px rgba(240, 192, 64, 0.3)'
+    }
   };
 
   // ==========================================
@@ -324,28 +352,19 @@ function Login() {
   // ==========================================
   return (
     <div style={styles.page}>
-
-      {/* Atmospheric background glows */}
       <div style={styles.glowLeft} />
       <div style={styles.glowRight} />
-
-      {/* Film strip perforations top & bottom */}
       <div style={styles.filmTop} />
       <div style={styles.filmBottom} />
 
-      {/* Main card — full screen on mobile, centered card on desktop */}
       <div style={styles.card}>
-
-        {/* Gold shimmer bar */}
         <div style={styles.goldBar} />
 
-        {/* Cinema branding */}
         <div style={{ marginBottom: '20px' }}>
           <div style={styles.logoText}>B.L.W Cinema</div>
           <div style={styles.logoSub}>Premium Experience</div>
         </div>
 
-        {/* Alerts for Success/Error Messages */}
         {errorMessage && <div style={styles.alertErr}>{errorMessage}</div>}
         {successMessage && <div style={styles.alertOk}>{successMessage}</div>}
 
@@ -355,7 +374,15 @@ function Login() {
         {view === 'otp' && (
           <div>
             <div style={styles.viewTitle}>Verify Account</div>
-            <div style={styles.viewSub}>OTP sent to your contact</div>
+            <div style={styles.viewSub}>Enter the code below</div>
+
+            {/* 👇 NEW: The Demo OTP Banner 👇 */}
+            {demoOtp && (
+              <div style={styles.demoBanner}>
+                <div style={styles.demoBannerLabel}>Demo Mode Generated OTP</div>
+                <div style={styles.demoBannerCode}>{demoOtp}</div>
+              </div>
+            )}
 
             <form onSubmit={handleVerifyOTP}>
               <label style={{ ...styles.label, textAlign: 'center', display: 'block' }}>
@@ -371,13 +398,6 @@ function Login() {
                 placeholder="------"
                 required
               />
-              <p style={{
-                fontSize: '11px', color: '#6b5c42',
-                textAlign: 'center', marginBottom: '16px',
-                fontFamily: "'DM Sans', sans-serif"
-              }}>
-                Check your email or mobile for the code
-              </p>
 
               <div style={styles.divider} />
 
@@ -388,7 +408,12 @@ function Login() {
 
             <div style={styles.switchRow}>
               <button
-                onClick={() => { setView('register'); setErrorMessage(''); setSuccessMessage(''); }}
+                onClick={() => { 
+                  setView('register'); 
+                  setErrorMessage(''); 
+                  setSuccessMessage(''); 
+                  setDemoOtp(null); // Clear it if they go back
+                }}
                 style={styles.switchBtn}
               >
                 ← Back to Register
@@ -457,7 +482,7 @@ function Login() {
                 </button>
               </div>
 
-              {/* Email + Mobile — stack vertically on mobile */}
+              {/* Email + Mobile */}
               <div style={{ display: 'flex', gap: '10px', flexDirection: isMobile ? 'column' : 'row' }}>
                 <div style={{ flex: 1 }}>
                   <label style={styles.label}>Email</label>
