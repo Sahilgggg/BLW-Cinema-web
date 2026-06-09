@@ -1,10 +1,6 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-const { Resend } = require('resend'); // <-- REPLACED NODEMAILER WITH RESEND
 const twilio = require('twilio'); 
-
-// Initialize Resend with your Render API Key
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 // --- HELPER FUNCTIONS ---
 const generateToken = (id) => {
@@ -52,73 +48,89 @@ exports.registerUser = async (req, res) => {
     });
 
     // ==========================================
-    // ROUTE A: ADMIN -> SEND VIA RESEND API
+    // ROUTE A: ADMIN -> SEND VIA GOOGLE SCRIPT
     // ==========================================
     if (requestedRole === 'admin') {
       try {
-        await resend.emails.send({
-          from: 'onboarding@resend.dev', // Must be this exact address on free tier
-          to: process.env.EMAIL_USER,    // Sends to your verified developer email
-          subject: `🚨 ADMIN REQUEST: New Registration (${name})`,
-          html: `
-            <div style="font-family: Arial, sans-serif; padding: 20px; border: 2px solid #D4AF37;">
-              <h2 style="color: #D4AF37;">Admin Registration Attempt</h2>
-              <p>Someone is trying to register as an Admin:</p>
-              <ul>
-                <li><strong>Name:</strong> ${name}</li>
-                <li><strong>Email:</strong> ${email || 'None'}</li>
-                <li><strong>Mobile:</strong> ${mobile || 'None'}</li>
-              </ul>
-              <p>To authorize this admin, enter this OTP on their screen:</p>
-              <h1 style="background: #eee; padding: 10px; text-align: center;">${otp}</h1>
-            </div>
-          `
+        const response = await fetch(process.env.GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: process.env.EMAIL_USER, // Sends to your master email
+            subject: `🚨 ADMIN REQUEST: New Registration (${name})`,
+            html: `
+              <div style="font-family: Arial, sans-serif; padding: 20px; border: 2px solid #D4AF37;">
+                <h2 style="color: #D4AF37;">Admin Registration Attempt</h2>
+                <p>Someone is trying to register as an Admin:</p>
+                <ul>
+                  <li><strong>Name:</strong> ${name}</li>
+                  <li><strong>Email:</strong> ${email || 'None'}</li>
+                  <li><strong>Mobile:</strong> ${mobile || 'None'}</li>
+                </ul>
+                <p>To authorize this admin, enter this OTP on their screen:</p>
+                <h1 style="background: #eee; padding: 10px; text-align: center;">${otp}</h1>
+              </div>
+            `
+          })
         });
 
-        console.log(`\n📩 ADMIN LOG: API OTP for ${name} sent.\n`);
-        
-        return res.status(201).json({ 
-          message: 'Admin request submitted. Please contact the Master Admin for your verification code.', 
-          userId: user._id 
-        });
+        const result = await response.json();
+
+        if (result.status === "Success") {
+          console.log(`\n📩 ADMIN LOG: Google API OTP for ${name} sent.\n`);
+          return res.status(201).json({ 
+            message: 'Admin request submitted. Please contact the Master Admin for your verification code.', 
+            userId: user._id 
+          });
+        } else {
+          throw new Error(result.message || 'Google Script failed');
+        }
 
       } catch (error) {
-        console.error('\n🚨 Resend Admin Error:', error);
-        return res.status(500).json({ message: 'Failed to send Admin alert via API.' });
+        console.error('\n🚨 Google Admin Error:', error);
+        return res.status(500).json({ message: 'Failed to send Admin alert.' });
       }
     } 
     
     // ==========================================
-    // ROUTE B: USER -> SEND VIA RESEND API
+    // ROUTE B: USER -> SEND VIA GOOGLE SCRIPT
     // ==========================================
     else {
       // Priority 1: User's Email
       if (email) {
         try {
-          await resend.emails.send({
-            from: 'onboarding@resend.dev', // Must be this exact address on free tier
-            to: email, // MAKE SURE THIS IS YOUR VERIFIED RESEND EMAIL WHEN TESTING
-            subject: 'BLW Cinema - Verify Your Account',
-            html: `
-              <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
-                <h2>Welcome to BLW Cinema, ${name}!</h2>
-                <p>Your account verification OTP is:</p>
-                <h1 style="color: #D4AF37; letter-spacing: 5px;">${otp}</h1>
-                <p>This code will expire in 10 minutes.</p>
-              </div>
-            `
+          const response = await fetch(process.env.GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: email, // Sends to the USER's email
+              subject: 'BLW Cinema - Verify Your Account',
+              html: `
+                <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
+                  <h2>Welcome to BLW Cinema, ${name}!</h2>
+                  <p>Your account verification OTP is:</p>
+                  <h1 style="color: #D4AF37; letter-spacing: 5px;">${otp}</h1>
+                  <p>This code will expire in 10 minutes.</p>
+                </div>
+              `
+            })
           });
 
-          console.log(`\n📩 USER LOG: API Email OTP sent to ${email}\n`);
+          const result = await response.json();
 
-          return res.status(201).json({ 
-            message: 'Registration successful! Check your email for the OTP.', 
-            userId: user._id 
-          });
+          if (result.status === "Success") {
+            console.log(`\n📩 USER LOG: Google API OTP sent to ${email}\n`);
+            return res.status(201).json({ 
+              message: 'Registration successful! Check your email for the OTP.', 
+              userId: user._id 
+            });
+          } else {
+            throw new Error(result.message || 'Google Script failed');
+          }
 
         } catch (error) {
-          console.error('\n🚨 Resend User Error:', error);
-          return res.status(500).json({ message: 'Email API Failed.' });
+          console.error('\n🚨 Google User Error:', error);
+          return res.status(500).json({ message: 'Email Failed. Check script setup.' });
         }
       } 
       
@@ -131,7 +143,7 @@ exports.registerUser = async (req, res) => {
           await client.messages.create({
             body: `Welcome to BLW Cinema! Your verification OTP is: ${otp}`,
             from: process.env.TWILIO_PHONE_NUMBER,
-            to: formattedMobile // Sends to the USER's phone
+            to: formattedMobile
           });
 
           console.log(`\n📲 USER LOG: Twilio SMS OTP sent to ${formattedMobile}\n`);
