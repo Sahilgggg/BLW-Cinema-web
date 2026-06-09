@@ -104,14 +104,15 @@ exports.registerUser = async (req, res) => {
       if (email) {
         try {
           const transporter = nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 587,
-            secure: true, // true for port 465, false for other ports
-            auth: {
-              user: process.env.EMAIL_USER,
-              pass: process.env.EMAIL_PASS
-            }
-          });
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true, 
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  },
+  family: 4 // <--- THIS IS THE MAGIC LINE: It forces IPv4 routing, bypassing the Render IPv6 block!
+});
 
           const mailOptions = {
             from: process.env.EMAIL_USER,
