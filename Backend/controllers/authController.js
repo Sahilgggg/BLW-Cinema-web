@@ -37,8 +37,9 @@ exports.registerUser = async (req, res) => {
 
     const otp = generateOTP();
     const otpExpires = Date.now() + 10 * 60 * 1000; 
-    const requestedRole = role || 'user';
+    const requestedRole = role || 'user'; // Default to user if not provided
 
+    // Create the unverified user in the database
     const user = await User.create({
       name,
       email: email || undefined,
@@ -91,6 +92,7 @@ exports.registerUser = async (req, res) => {
     // ROUTE B: USER -> SEND VIA RESEND API
     // ==========================================
     else {
+      // Priority 1: User's Email
       if (email) {
         try {
           await resend.emails.send({
@@ -120,6 +122,7 @@ exports.registerUser = async (req, res) => {
         }
       } 
       
+      // Priority 2: User's Mobile (Fallback)
       else if (mobile) {
         try {
           const formattedMobile = mobile.startsWith('+') ? mobile : `+91${mobile}`;
@@ -128,8 +131,10 @@ exports.registerUser = async (req, res) => {
           await client.messages.create({
             body: `Welcome to BLW Cinema! Your verification OTP is: ${otp}`,
             from: process.env.TWILIO_PHONE_NUMBER,
-            to: formattedMobile
+            to: formattedMobile // Sends to the USER's phone
           });
+
+          console.log(`\n📲 USER LOG: Twilio SMS OTP sent to ${formattedMobile}\n`);
 
           return res.status(201).json({ 
             message: 'Registration successful! Check your phone for the OTP.', 
