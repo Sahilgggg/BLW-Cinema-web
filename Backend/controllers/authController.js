@@ -1,7 +1,10 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
-const twilio = require('twilio'); // Import Twilio
+const { Resend } = require('resend'); // <-- REPLACED NODEMAILER WITH RESEND
+const twilio = require('twilio'); 
+
+// Initialize Resend with your Render API Key
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // --- HELPER FUNCTIONS ---
 const generateToken = (id) => {
@@ -34,9 +37,8 @@ exports.registerUser = async (req, res) => {
 
     const otp = generateOTP();
     const otpExpires = Date.now() + 10 * 60 * 1000; 
-    const requestedRole = role || 'user'; // Default to user if not provided
+    const requestedRole = role || 'user';
 
-    // Create the unverified user in the database
     const user = await User.create({
       name,
       email: email || undefined,
@@ -49,23 +51,13 @@ exports.registerUser = async (req, res) => {
     });
 
     // ==========================================
-    // ROUTE A: IF THEY REQUESTED ADMIN -> SEND TO YOU
+    // ROUTE A: ADMIN -> SEND VIA RESEND API
     // ==========================================
     if (requestedRole === 'admin') {
       try {
-        const transporter = nodemailer.createTransport({
-          host: 'smtp.gmail.com',
-          port: 465,
-          secure: true, // true for port 465, false for other ports
-          auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS
-          }
-        });
-
-        const mailOptions = {
-          from: process.env.EMAIL_USER,
-          to: process.env.EMAIL_USER, // Hardcoded to YOUR email
+        await resend.emails.send({
+          from: 'onboarding@resend.dev', // Must be this exact address on free tier
+          to: process.env.EMAIL_USER,    // Sends to your verified developer email
           subject: `🚨 ADMIN REQUEST: New Registration (${name})`,
           html: `
             <div style="font-family: Arial, sans-serif; padding: 20px; border: 2px solid #D4AF37;">
@@ -80,10 +72,9 @@ exports.registerUser = async (req, res) => {
               <h1 style="background: #eee; padding: 10px; text-align: center;">${otp}</h1>
             </div>
           `
-        };
+        });
 
-        await transporter.sendMail(mailOptions);
-        console.log(`\n📩 ADMIN LOG: OTP for ${name} sent to Master Email.\n`);
+        console.log(`\n📩 ADMIN LOG: API OTP for ${name} sent.\n`);
         
         return res.status(201).json({ 
           message: 'Admin request submitted. Please contact the Master Admin for your verification code.', 
@@ -91,32 +82,20 @@ exports.registerUser = async (req, res) => {
         });
 
       } catch (error) {
-        console.error('\n🚨 Nodemailer Admin Error:', error);
-        return res.status(500).json({ message: 'Failed to send Admin alert.' });
+        console.error('\n🚨 Resend Admin Error:', error);
+        return res.status(500).json({ message: 'Failed to send Admin alert via API.' });
       }
     } 
     
     // ==========================================
-    // ROUTE B: IF STANDARD USER -> SEND TO THEM
+    // ROUTE B: USER -> SEND VIA RESEND API
     // ==========================================
     else {
-      // Priority 1: User's Email
       if (email) {
         try {
-          const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true, 
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  },
-  family: 4 // <--- THIS IS THE MAGIC LINE: It forces IPv4 routing, bypassing the Render IPv6 block!
-});
-
-          const mailOptions = {
-            from: process.env.EMAIL_USER,
-            to: email, // Sends to the USER's email
+          await resend.emails.send({
+            from: 'onboarding@resend.dev', // Must be this exact address on free tier
+            to: email, // MAKE SURE THIS IS YOUR VERIFIED RESEND EMAIL WHEN TESTING
             subject: 'BLW Cinema - Verify Your Account',
             html: `
               <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
@@ -126,10 +105,9 @@ exports.registerUser = async (req, res) => {
                 <p>This code will expire in 10 minutes.</p>
               </div>
             `
-          };
+          });
 
-          await transporter.sendMail(mailOptions);
-          console.log(`\n📩 USER LOG: Email OTP sent to ${email}\n`);
+          console.log(`\n📩 USER LOG: API Email OTP sent to ${email}\n`);
 
           return res.status(201).json({ 
             message: 'Registration successful! Check your email for the OTP.', 
@@ -137,12 +115,11 @@ exports.registerUser = async (req, res) => {
           });
 
         } catch (error) {
-          console.error('\n🚨 Nodemailer User Error:', error);
-          return res.status(500).json({ message: 'Email Failed. Check Nodemailer credentials.' });
+          console.error('\n🚨 Resend User Error:', error);
+          return res.status(500).json({ message: 'Email API Failed.' });
         }
       } 
       
-      // Priority 2: User's Mobile (Fallback)
       else if (mobile) {
         try {
           const formattedMobile = mobile.startsWith('+') ? mobile : `+91${mobile}`;
@@ -151,10 +128,8 @@ exports.registerUser = async (req, res) => {
           await client.messages.create({
             body: `Welcome to BLW Cinema! Your verification OTP is: ${otp}`,
             from: process.env.TWILIO_PHONE_NUMBER,
-            to: formattedMobile // Sends to the USER's phone
+            to: formattedMobile
           });
-
-          console.log(`\n📲 USER LOG: Twilio SMS OTP sent to ${formattedMobile}\n`);
 
           return res.status(201).json({ 
             message: 'Registration successful! Check your phone for the OTP.', 
