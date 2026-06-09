@@ -15,9 +15,9 @@ const loadRazorpayScript = () => {
 
 // Cinema Layout Configuration
 const SEAT_CONFIG = [
-  { id: 'first', name: 'First Class', price: 30, rows: ['A', 'B', 'C'], seatsPerRow: 12, color: 'border-cinema-gold text-cinema-gold' },
-  { id: 'second', name: 'Second Class', price: 20, rows: ['D', 'E', 'F', 'G', 'H', 'I', 'J'], seatsPerRow: 10, color: 'border-blue-400 text-blue-400' },
-  { id: 'third', name: 'Third Class', price: 15, rows: ['K', 'L', 'M', 'N'], seatsPerRow: 8, color: 'border-gray-400 text-gray-400' },
+  { id: 'first',  name: 'First Class',  price: 30, rows: ['A','B','C'],               seatsPerRow: 12, color: '#c9920a' },
+  { id: 'second', name: 'Second Class', price: 20, rows: ['D','E','F','G','H','I','J'], seatsPerRow: 10, color: '#60a5fa' },
+  { id: 'third',  name: 'Third Class',  price: 15, rows: ['K','L','M','N'],            seatsPerRow: 8,  color: '#9ca3af' },
 ];
 
 function Booking() {
@@ -26,14 +26,24 @@ function Booking() {
   const { user } = useContext(AuthContext); // Get the logged-in user's token
 
   const [selectedSeats, setSelectedSeats] = useState([]);
-  const [bookedSeats, setBookedSeats] = useState([]); // Now dynamic from DB!
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [bookedSeats, setBookedSeats]     = useState([]); // Now dynamic from DB!
+  const [isProcessing, setIsProcessing]   = useState(false);
+  const [isMobile, setIsMobile]           = useState(window.innerWidth < 1024);
+
+  // Track screen size
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // --- 1. FETCH BOOKED SEATS ON LOAD ---
   useEffect(() => {
     const fetchBookedSeats = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/bookings/movie/${id}`);
+        const response = await fetch(
+          `${import.meta.env.VITE_BACKEND_URL}/api/bookings/movie/${id}`
+        );
         if (response.ok) {
           const data = await response.json();
           setBookedSeats(data); // Array of seat IDs like ['A1', 'C4']
@@ -43,7 +53,7 @@ function Booking() {
       }
     };
     fetchBookedSeats();
-    
+
     // Optional: Poll every 5 seconds to keep seats updated if someone else is booking
     const interval = setInterval(fetchBookedSeats, 5000);
     return () => clearInterval(interval);
@@ -52,9 +62,7 @@ function Booking() {
   // --- 2. SEAT SELECTION LOGIC ---
   const toggleSeat = (seatId, price, sectionName) => {
     if (bookedSeats.includes(seatId)) return;
-
     const isAlreadySelected = selectedSeats.some(seat => seat.seatId === seatId);
-
     if (isAlreadySelected) {
       setSelectedSeats(selectedSeats.filter(seat => seat.seatId !== seatId));
     } else {
@@ -64,7 +72,6 @@ function Booking() {
 
   const totalPrice = selectedSeats.reduce((sum, seat) => sum + (Number(seat.price) || 0), 0);
 
-  // --- 3. CHECKOUT LOGIC ---
   // --- 3. SECURE RAZORPAY CHECKOUT LOGIC ---
   const handleCheckout = async () => {
     if (selectedSeats.length === 0) return;
@@ -80,21 +87,23 @@ function Booking() {
       }
 
       // Step B: Create the order on your Node backend
-      const orderResponse = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/payments/order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${user.token}`,
-        },
-        body: JSON.stringify({ amount: totalPrice }),
-      });
+      const orderResponse = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/payments/order`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${user.token}`,
+          },
+          body: JSON.stringify({ amount: totalPrice }),
+        }
+      );
       const orderData = await orderResponse.json();
-
       if (!orderResponse.ok) throw new Error('Failed to create payment order');
 
       // Step C: Open Razorpay Popup
       const options = {
-        key: 'rzp_test_SypPbZEfurHbSU', // IMPORTANT: Paste your actual Key ID here too!
+        key: 'rzp_test_SypPbZEfurHbSU',
         amount: orderData.amount,
         currency: orderData.currency,
         name: 'B.L.W Cinema Hall',
@@ -102,33 +111,39 @@ function Booking() {
         order_id: orderData.id,
         handler: async function (response) {
           // Step D: Razorpay success! Now verify signature on backend
-          const verifyRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/payments/verify`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${user.token}`,
-            },
-            body: JSON.stringify({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            }),
-          });
-
-          if (verifyRes.ok) {
-            // Step E: Signature verified. Now actually lock the seats and save the booking!
-            const bookingRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/bookings`, {
+          const verifyRes = await fetch(
+            `${import.meta.env.VITE_BACKEND_URL}/api/payments/verify`,
+            {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${user.token}`,
               },
               body: JSON.stringify({
-                movieId: id,
-                seats: selectedSeats,
-                totalAmount: totalPrice,
+                razorpay_order_id:  response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature:  response.razorpay_signature,
               }),
-            });
+            }
+          );
+
+          if (verifyRes.ok) {
+            // Step E: Signature verified. Now lock seats and save booking!
+            const bookingRes = await fetch(
+              `${import.meta.env.VITE_BACKEND_URL}/api/bookings`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${user.token}`,
+                },
+                body: JSON.stringify({
+                  movieId: id,
+                  seats: selectedSeats,
+                  totalAmount: totalPrice,
+                }),
+              }
+            );
 
             if (bookingRes.ok) {
               alert('Payment Successful & Booking Confirmed!');
@@ -141,13 +156,8 @@ function Booking() {
             alert('Payment verification failed!');
           }
         },
-        prefill: {
-          name: user.name,
-          email: user.email,
-        },
-        theme: {
-          color: '#E50914', // Matches our cinema accent red
-        },
+        prefill: { name: user.name, email: user.email },
+        theme: { color: '#c9920a' },
       };
 
       const paymentObject = new window.Razorpay(options);
@@ -161,34 +171,267 @@ function Booking() {
     }
   };
 
+  // ─── STYLES ───────────────────────────────────────────────────────────────
+  const S = {
+    page: {
+      minHeight: '100vh',
+      backgroundColor: '#080a0e',
+      color: '#e8dcc8',
+      fontFamily: "'DM Sans', sans-serif",
+      paddingBottom: '60px',
+    },
+
+    // Top sticky nav
+    topNav: {
+      padding: isMobile ? '14px 16px' : '16px 28px',
+      borderBottom: '1px solid rgba(255,255,255,0.07)',
+      backgroundColor: '#0a0b0f',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      position: 'sticky',
+      top: 0, zIndex: 20,
+    },
+    backLink: {
+      color: '#6b5c42',
+      textDecoration: 'none',
+      fontSize: '13px',
+      letterSpacing: '0.04em',
+      fontFamily: "'DM Sans', sans-serif",
+      display: 'flex', alignItems: 'center', gap: '6px',
+    },
+    navTitle: {
+      fontFamily: "'Playfair Display', serif",
+      fontSize: isMobile ? '16px' : '18px',
+      fontWeight: 700,
+      color: '#e8dcc8',
+    },
+
+    // Main layout
+    layout: {
+      maxWidth: '1200px',
+      margin: '0 auto',
+      padding: isMobile ? '20px 12px' : '32px 24px',
+      display: 'flex',
+      flexDirection: isMobile ? 'column' : 'row',
+      gap: isMobile ? '24px' : '32px',
+      alignItems: 'flex-start',
+    },
+
+    // Seat matrix container
+    seatPanel: {
+      flex: 1,
+      backgroundColor: '#0d0f14',
+      border: '1px solid rgba(255,255,255,0.07)',
+      borderRadius: '6px',
+      padding: isMobile ? '16px 12px' : '32px',
+      overflowX: 'auto',
+      WebkitOverflowScrolling: 'touch',
+    },
+
+    // Section header
+    sectionHeader: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      borderBottom: '1px solid rgba(255,255,255,0.07)',
+      paddingBottom: '10px',
+      marginBottom: '16px',
+    },
+    sectionName: {
+      fontSize: '11px', fontWeight: 700,
+      letterSpacing: '0.14em', textTransform: 'uppercase',
+      fontFamily: "'DM Sans', sans-serif",
+    },
+    sectionPrice: {
+      fontSize: '12px', color: '#6b5c42',
+      fontFamily: "'DM Sans', sans-serif",
+    },
+
+    // Row label
+    rowLabel: {
+      width: '20px', textAlign: 'center',
+      color: '#6b5c42', fontSize: '11px',
+      fontWeight: 700, fontFamily: 'monospace',
+      flexShrink: 0,
+    },
+
+    // Screen bar
+    screenBar: {
+      height: '4px',
+      background: 'linear-gradient(90deg, transparent, rgba(200,146,10,0.5), rgba(240,192,64,0.8), rgba(200,146,10,0.5), transparent)',
+      borderRadius: '2px',
+      margin: '0 auto',
+      maxWidth: '500px',
+    },
+    screenLabel: {
+      textAlign: 'center',
+      fontSize: '9px', letterSpacing: '0.2em',
+      textTransform: 'uppercase', color: '#6b5c42',
+      marginTop: '8px', fontFamily: "'DM Sans', sans-serif",
+    },
+
+    // Legend
+    legendWrap: {
+      display: 'flex',
+      justifyContent: 'center',
+      gap: isMobile ? '16px' : '28px',
+      marginTop: '24px',
+      paddingTop: '20px',
+      borderTop: '1px solid rgba(255,255,255,0.06)',
+      flexWrap: 'wrap',
+    },
+    legendItem: {
+      display: 'flex', alignItems: 'center', gap: '7px',
+      fontSize: '11px', color: '#8a7355',
+      fontFamily: "'DM Sans', sans-serif",
+    },
+
+    // Checkout panel
+    checkoutPanel: {
+      width: isMobile ? '100%' : '340px',
+      backgroundColor: '#0d0f14',
+      border: '1px solid rgba(255,255,255,0.07)',
+      borderRadius: '6px',
+      padding: '24px',
+      position: isMobile ? 'static' : 'sticky',
+      top: '80px',
+      flexShrink: 0,
+    },
+    summaryTitle: {
+      fontFamily: "'Playfair Display', serif",
+      fontSize: '17px', fontWeight: 700,
+      color: '#e8dcc8', marginBottom: '20px',
+      paddingBottom: '16px',
+      borderBottom: '1px solid rgba(255,255,255,0.07)',
+    },
+    seatRow: {
+      display: 'flex', justifyContent: 'space-between',
+      alignItems: 'center', marginBottom: '12px',
+    },
+    seatId: {
+      color: '#ffffff', fontWeight: 700,
+      fontSize: '14px', marginRight: '8px',
+      fontFamily: "'DM Sans', sans-serif",
+    },
+    seatSection: {
+      color: '#6b5c42', fontSize: '11px',
+      fontFamily: "'DM Sans', sans-serif",
+    },
+    seatPrice: {
+      color: '#e8dcc8', fontSize: '13px',
+      fontFamily: "'DM Sans', sans-serif",
+    },
+    totalRow: {
+      display: 'flex', justifyContent: 'space-between',
+      alignItems: 'flex-end',
+      borderTop: '1px solid rgba(255,255,255,0.07)',
+      paddingTop: '20px', marginBottom: '24px',
+    },
+    totalLabel: {
+      color: '#6b5c42', fontSize: '12px',
+      fontFamily: "'DM Sans', sans-serif",
+    },
+    totalCount: {
+      color: '#6b5c42', fontSize: '11px',
+      marginTop: '4px',
+      fontFamily: "'DM Sans', sans-serif",
+    },
+    totalAmount: {
+      fontFamily: "'Bebas Neue', sans-serif",
+      fontSize: '42px', color: '#c9920a',
+      lineHeight: 1, letterSpacing: '0.02em',
+    },
+  };
+
+  // Seat button style — computed per seat state
+  const getSeatStyle = (isBooked, isSelected, sectionColor) => ({
+    width: isMobile ? '26px' : '32px',
+    height: isMobile ? '26px' : '32px',
+    borderRadius: '4px 4px 2px 2px',
+    fontSize: '9px', fontWeight: 700,
+    cursor: isBooked ? 'not-allowed' : 'pointer',
+    border: isBooked
+      ? '1px solid rgba(255,255,255,0.05)'
+      : isSelected
+        ? 'none'
+        : `1px solid ${sectionColor}`,
+    backgroundColor: isBooked
+      ? '#111318'
+      : isSelected
+        ? '#c0392b'
+        : '#0a0b0f',
+    color: isBooked
+      ? '#2a2a2a'
+      : isSelected
+        ? '#ffffff'
+        : 'transparent',
+    transform: isSelected ? 'scale(1.12)' : 'scale(1)',
+    transition: 'all 0.15s',
+    flexShrink: 0,
+    WebkitTapHighlightColor: 'transparent',
+    fontFamily: 'monospace',
+  });
+
+  const getCheckoutBtnStyle = (active) => ({
+    width: '100%',
+    padding: '14px',
+    fontFamily: "'DM Sans', sans-serif",
+    fontSize: '13px', fontWeight: 700,
+    letterSpacing: '0.12em', textTransform: 'uppercase',
+    border: 'none', borderRadius: '3px',
+    cursor: active ? 'pointer' : 'not-allowed',
+    background: active
+      ? 'linear-gradient(90deg, #9b2020, #c0392b)'
+      : '#1a1c22',
+    color: active ? '#ffffff' : '#4a4a4a',
+    transition: 'opacity 0.2s',
+    WebkitTapHighlightColor: 'transparent',
+  });
+
+  // ─── RENDER ───────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-cinema-bg text-cinema-light pb-12">
+    <div style={S.page}>
+
       {/* Top Navigation Bar */}
-      <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-[#0B0C10] sticky top-0 z-20 shadow-md">
-        <Link to="/" className="text-cinema-text hover:text-white transition">&larr; Back</Link>
-        <h2 className="text-xl font-bold text-white">Select Seats</h2>
-        <div className="w-10"></div>
+      <div style={S.topNav}>
+        <Link to="/" style={S.backLink}>
+          ← Back
+        </Link>
+        <div style={S.navTitle}>Select Seats</div>
+        <div style={{ width: '40px' }} />
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 mt-8 flex flex-col lg:flex-row gap-12 items-start">
-        
-        {/* Left Side: Seat Matrix */}
-        <div className="flex-1 overflow-x-auto bg-cinema-surface p-6 md:p-10 rounded-2xl border border-gray-800">
-          <div className="flex flex-col items-center min-w-max gap-8">
+      <div style={S.layout}>
+
+        {/* ── LEFT: Seat Matrix ── */}
+        <div style={S.seatPanel}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '32px', minWidth: 'max-content' }}>
+
             {SEAT_CONFIG.map((section) => (
-              <div key={section.id} className="w-full flex flex-col items-center">
-                <div className="w-full flex items-center justify-between mb-4 border-b border-gray-700 pb-2">
-                  <span className={`text-sm font-bold uppercase tracking-wider ${section.color}`}>{section.name}</span>
-                  <span className="text-sm font-medium text-cinema-text">₹{section.price}</span>
+              <div key={section.id} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+
+                {/* Section header */}
+                <div style={{ ...S.sectionHeader, width: '100%' }}>
+                  <span style={{ ...S.sectionName, color: section.color }}>
+                    {section.name}
+                  </span>
+                  <span style={S.sectionPrice}>₹{section.price}</span>
                 </div>
-                <div className="flex flex-col gap-3">
+
+                {/* Seat rows */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {section.rows.map((row) => (
-                    <div key={row} className="flex items-center justify-center gap-4">
-                      <span className="w-6 text-center text-cinema-text font-mono font-bold">{row}</span>
-                      <div className="flex gap-2">
+                    <div key={row} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isMobile ? '6px' : '10px' }}>
+
+                      {/* Row label left */}
+                      <span style={S.rowLabel}>{row}</span>
+
+                      {/* Seat buttons */}
+                      <div style={{ display: 'flex', gap: isMobile ? '4px' : '6px' }}>
                         {[...Array(section.seatsPerRow)].map((_, index) => {
-                          const seatId = `${row}${index + 1}`;
-                          const isBooked = bookedSeats.includes(seatId);
+                          const seatId   = `${row}${index + 1}`;
+                          const isBooked   = bookedSeats.includes(seatId);
                           const isSelected = selectedSeats.some(s => s.seatId === seatId);
 
                           return (
@@ -196,17 +439,17 @@ function Booking() {
                               key={seatId}
                               onClick={() => toggleSeat(seatId, section.price, section.name)}
                               disabled={isBooked || isProcessing}
-                              className={`w-7 h-7 md:w-9 md:h-9 rounded-t-lg transition-all duration-200 text-xs font-bold
-                                ${isBooked ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 
-                                  isSelected ? 'bg-cinema-accent text-white transform scale-110 shadow-lg shadow-red-900/50' : 
-                                  `bg-[#0B0C10] hover:bg-gray-700 text-transparent hover:text-white border ${section.color.split(' ')[0]}`}`}
+                              title={seatId}
+                              style={getSeatStyle(isBooked, isSelected, section.color)}
                             >
                               {index + 1}
                             </button>
                           );
                         })}
                       </div>
-                      <span className="w-6 text-center text-cinema-text font-mono font-bold">{row}</span>
+
+                      {/* Row label right */}
+                      <span style={S.rowLabel}>{row}</span>
                     </div>
                   ))}
                 </div>
@@ -214,56 +457,123 @@ function Booking() {
             ))}
           </div>
 
-          <div className="w-full max-w-2xl mx-auto mt-16 mb-4">
-            <div className="h-3 bg-gradient-to-t from-gray-700 to-gray-500 rounded-t-full opacity-60 shadow-[0_-15px_30px_rgba(255,255,255,0.05)]"></div>
-            <p className="text-center text-xs text-cinema-text mt-3 uppercase tracking-widest font-bold">Screen This Way</p>
+          {/* Screen indicator */}
+          <div style={{ marginTop: '48px', marginBottom: '8px', padding: '0 16px' }}>
+            <div style={S.screenBar} />
+            <p style={S.screenLabel}>Screen This Way</p>
           </div>
 
-          <div className="flex justify-center gap-6 mt-10 text-sm border-t border-gray-800 pt-6">
-            <div className="flex items-center gap-2"><div className="w-4 h-4 border border-gray-500 rounded"></div> Available</div>
-            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-cinema-accent rounded"></div> Selected</div>
-            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-gray-800 rounded"></div> Booked</div>
+          {/* Legend */}
+          <div style={S.legendWrap}>
+            <div style={S.legendItem}>
+              <div style={{ width: '14px', height: '14px', border: '1px solid #6b5c42', borderRadius: '3px' }} />
+              Available
+            </div>
+            <div style={S.legendItem}>
+              <div style={{ width: '14px', height: '14px', backgroundColor: '#c0392b', borderRadius: '3px' }} />
+              Selected
+            </div>
+            <div style={S.legendItem}>
+              <div style={{ width: '14px', height: '14px', backgroundColor: '#111318', borderRadius: '3px', border: '1px solid rgba(255,255,255,0.05)' }} />
+              Booked
+            </div>
           </div>
         </div>
 
-        {/* Right Side: Checkout Summary */}
-        <div className="w-full lg:w-96 bg-cinema-surface p-6 rounded-xl border border-gray-800 sticky top-28">
-          <h3 className="text-lg font-bold text-white mb-6 border-b border-gray-700 pb-4">Booking Summary</h3>
-          
-          <div className="min-h-[100px] mb-6">
+        {/* ── RIGHT: Checkout Summary ── */}
+        <div style={S.checkoutPanel}>
+
+          {/* Gold shimmer bar */}
+          <div style={{
+            height: '2px', borderRadius: '2px', marginBottom: '20px',
+            background: 'linear-gradient(90deg, transparent, #c9920a, #f0c040, #c9920a, transparent)',
+          }} />
+
+          <div style={S.summaryTitle}>Booking Summary</div>
+
+          {/* Selected seats list */}
+          <div style={{ minHeight: '100px', marginBottom: '16px' }}>
             {selectedSeats.length === 0 ? (
-              <p className="text-cinema-text text-sm italic text-center mt-8">No seats selected yet.</p>
+              <p style={{
+                color: '#4a3c2a', fontSize: '13px',
+                textAlign: 'center', marginTop: '24px',
+                fontStyle: 'italic',
+                fontFamily: "'DM Sans', sans-serif",
+              }}>
+                No seats selected yet.
+              </p>
             ) : (
-              <ul className="space-y-3">
+              <div>
                 {selectedSeats.map(seat => (
-                  <li key={seat.seatId} className="flex justify-between items-center text-sm">
+                  <div key={seat.seatId} style={S.seatRow}>
                     <div>
-                      <span className="text-white font-bold mr-2">{seat.seatId}</span>
-                      <span className="text-cinema-text text-xs">({seat.section})</span>
+                      <span style={S.seatId}>{seat.seatId}</span>
+                      <span style={S.seatSection}>({seat.section})</span>
                     </div>
-                    <span className="text-white">₹{seat.price}</span>
-                  </li>
+                    <span style={S.seatPrice}>₹{seat.price}</span>
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
           </div>
 
-          <div className="flex justify-between items-end mb-8 border-t border-gray-700 pt-6">
-            <div className="flex flex-col">
-              <span className="text-cinema-text text-sm">Total Amount</span>
-              <span className="text-cinema-text text-xs mt-1">{selectedSeats.length} Ticket(s)</span>
+          {/* Total */}
+          <div style={S.totalRow}>
+            <div>
+              <div style={S.totalLabel}>Total Amount</div>
+              <div style={S.totalCount}>{selectedSeats.length} Ticket(s)</div>
             </div>
-            <span className="text-cinema-gold font-black text-3xl">₹{totalPrice}</span>
+            <div style={S.totalAmount}>₹{totalPrice}</div>
           </div>
 
-          <button 
+          {/* Checkout button */}
+          <button
             onClick={handleCheckout}
             disabled={selectedSeats.length === 0 || isProcessing}
-            className={`w-full py-4 rounded-lg font-bold text-lg transition duration-200 shadow-lg
-              ${selectedSeats.length > 0 && !isProcessing ? 'bg-cinema-accent hover:bg-red-700 text-white' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
+            style={getCheckoutBtnStyle(selectedSeats.length > 0 && !isProcessing)}
           >
-            {isProcessing ? 'Processing...' : selectedSeats.length > 0 ? 'Confirm & Pay' : 'Select a Seat'}
+            {isProcessing
+              ? 'Processing...'
+              : selectedSeats.length > 0
+                ? 'Confirm & Pay'
+                : 'Select a Seat'}
           </button>
+
+          {/* Section price reference */}
+          <div style={{
+            marginTop: '24px',
+            paddingTop: '20px',
+            borderTop: '1px solid rgba(255,255,255,0.06)',
+          }}>
+            <div style={{
+              fontSize: '9px', letterSpacing: '0.14em',
+              textTransform: 'uppercase', color: '#4a3c2a',
+              marginBottom: '12px',
+              fontFamily: "'DM Sans', sans-serif",
+            }}>
+              Seat Pricing
+            </div>
+            {SEAT_CONFIG.map(s => (
+              <div key={s.id} style={{
+                display: 'flex', justifyContent: 'space-between',
+                alignItems: 'center', marginBottom: '8px',
+              }}>
+                <span style={{
+                  fontSize: '11px', color: s.color,
+                  fontWeight: 600, letterSpacing: '0.06em',
+                  fontFamily: "'DM Sans', sans-serif",
+                }}>
+                  {s.name}
+                </span>
+                <span style={{
+                  fontSize: '12px', color: '#8a7355',
+                  fontFamily: "'DM Sans', sans-serif",
+                }}>
+                  ₹{s.price}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
 
       </div>
