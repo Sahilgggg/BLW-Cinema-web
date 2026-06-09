@@ -4,13 +4,10 @@ import { AuthContext } from '../context/AuthContext';
 
 function Login() {
   const navigate = useNavigate();
-  // Remove 'dispatch' and bring in 'login'
   const { login } = useContext(AuthContext);
 
-  // --- UI STATE: Controls which form is visible ('login', 'register', or 'otp') ---
+  // --- UI STATE ---
   const [view, setView] = useState('login');
-
-  // --- RESPONSIVE STATE: Tracks screen width for mobile adjustments ---
   const [isMobile, setIsMobile] = useState(window.innerWidth < 480);
 
   useEffect(() => {
@@ -23,21 +20,19 @@ function Login() {
   const [formData, setFormData] = useState({
     name: '', email: '', mobile: '', password: '', role: 'user', identifier: ''
   });
-  const [otp, setOtp] = useState('');
+  
+  const [otp, setOtp] = useState(''); // This controls the input field
   const [tempUserId, setTempUserId] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  
-  // 👇 NEW STATE: Holds the OTP to display on the card 👇
-  const [demoOtp, setDemoOtp] = useState(null);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-    setErrorMessage(''); // Clear errors when typing
+    setErrorMessage(''); 
   };
 
   // ==========================================
-  // 1. HANDLE REGISTRATION (Creates User, Asks for OTP)
+  // 1. HANDLE REGISTRATION (Auto-Fill Magic)
   // ==========================================
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -48,14 +43,16 @@ function Login() {
         body: JSON.stringify(formData),
       });
       const data = await res.json();
+      
       if (res.ok) {
         setTempUserId(data.userId);
-        setSuccessMessage(data.message);
+        setSuccessMessage('Registration successful! Auto-filling code...');
         
-        // 👇 Replaced alert() with React State 👇
-        setDemoOtp(data.otp); 
+        // 👇 THE AUTO-FILL MAGIC 👇
+        // This takes the OTP from the backend and injects it directly into the input box
+        setOtp(data.otp); 
 
-        setView('otp'); // Switch screen to OTP
+        setView('otp'); 
       } else {
         setErrorMessage(data.message);
       }
@@ -78,9 +75,8 @@ function Login() {
       const data = await res.json();
       if (res.ok) {
         setSuccessMessage('Verified successfully! You can now log in.');
-        setView('login'); // Switch screen back to Login
+        setView('login'); 
         setOtp('');
-        setDemoOtp(null); // Clear the demo banner
       } else {
         setErrorMessage(data.message);
       }
@@ -113,237 +109,109 @@ function Login() {
   };
 
   // ==========================================
-  // REUSABLE STYLE OBJECTS — MOBILE RESPONSIVE
+  // REUSABLE STYLE OBJECTS
   // ==========================================
   const styles = {
     page: {
-      minHeight: '100vh',
-      backgroundColor: '#080a0e',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: isMobile ? '0' : '16px',
-      position: 'relative',
-      overflow: 'hidden',
-      fontFamily: "'DM Sans', sans-serif",
+      minHeight: '100vh', backgroundColor: '#080a0e', display: 'flex', justifyContent: 'center',
+      alignItems: 'center', padding: isMobile ? '0' : '16px', position: 'relative',
+      overflow: 'hidden', fontFamily: "'DM Sans', sans-serif",
     },
     glowLeft: {
-      position: 'absolute',
-      left: '-80px', top: '-60px',
-      width: '320px', height: '320px',
-      background: 'radial-gradient(circle, rgba(180,120,0,0.15) 0%, transparent 70%)',
-      pointerEvents: 'none',
+      position: 'absolute', left: '-80px', top: '-60px', width: '320px', height: '320px',
+      background: 'radial-gradient(circle, rgba(180,120,0,0.15) 0%, transparent 70%)', pointerEvents: 'none',
     },
     glowRight: {
-      position: 'absolute',
-      right: '-80px', bottom: '-60px',
-      width: '280px', height: '280px',
-      background: 'radial-gradient(circle, rgba(160,40,30,0.12) 0%, transparent 70%)',
-      pointerEvents: 'none',
+      position: 'absolute', right: '-80px', bottom: '-60px', width: '280px', height: '280px',
+      background: 'radial-gradient(circle, rgba(160,40,30,0.12) 0%, transparent 70%)', pointerEvents: 'none',
     },
     filmTop: {
-      position: 'absolute', top: 0, left: 0, right: 0,
-      height: '12px', opacity: 0.5, zIndex: 10,
+      position: 'absolute', top: 0, left: 0, right: 0, height: '12px', opacity: 0.5, zIndex: 10,
       background: 'repeating-linear-gradient(90deg, #0d0f14 0 14px, #1a1c22 14px 18px)',
     },
     filmBottom: {
-      position: 'absolute', bottom: 0, left: 0, right: 0,
-      height: '12px', opacity: 0.5, zIndex: 10,
+      position: 'absolute', bottom: 0, left: 0, right: 0, height: '12px', opacity: 0.5, zIndex: 10,
       background: 'repeating-linear-gradient(90deg, #0d0f14 0 14px, #1a1c22 14px 18px)',
     },
     card: {
-      position: 'relative', zIndex: 20,
-      width: '100%',
-      maxWidth: isMobile ? '100%' : '420px',
-      minHeight: isMobile ? '100vh' : 'auto',
-      backgroundColor: '#0d0f14',
+      position: 'relative', zIndex: 20, width: '100%', maxWidth: isMobile ? '100%' : '420px',
+      minHeight: isMobile ? '100vh' : 'auto', backgroundColor: '#0d0f14',
       border: isMobile ? 'none' : '1px solid rgba(255,255,255,0.08)',
-      borderRadius: isMobile ? '0' : '8px',
-      padding: isMobile ? '48px 20px 32px' : '32px 28px',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: isMobile ? 'center' : 'flex-start',
+      borderRadius: isMobile ? '0' : '8px', padding: isMobile ? '48px 20px 32px' : '32px 28px',
+      display: 'flex', flexDirection: 'column', justifyContent: isMobile ? 'center' : 'flex-start',
     },
     goldBar: {
       height: '2px', borderRadius: '2px', marginBottom: '24px',
       background: 'linear-gradient(90deg, transparent, #c9920a, #f0c040, #c9920a, transparent)',
     },
     logoText: {
-      fontFamily: "'Bebas Neue', sans-serif",
-      fontSize: isMobile ? '36px' : '32px',
-      letterSpacing: '0.1em',
-      color: '#ffffff',
-      lineHeight: 1,
-      textAlign: 'center',
+      fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '36px' : '32px',
+      letterSpacing: '0.1em', color: '#ffffff', lineHeight: 1, textAlign: 'center',
     },
     logoSub: {
-      fontFamily: "'DM Sans', sans-serif",
-      fontSize: '9px',
-      letterSpacing: '0.22em',
-      textTransform: 'uppercase',
-      color: '#6b5c42',
-      marginTop: '4px',
-      textAlign: 'center',
+      fontFamily: "'DM Sans', sans-serif", fontSize: '9px', letterSpacing: '0.22em',
+      textTransform: 'uppercase', color: '#6b5c42', marginTop: '4px', textAlign: 'center',
     },
     viewTitle: {
-      fontFamily: "'Playfair Display', serif",
-      fontSize: isMobile ? '24px' : '22px',
-      fontWeight: 700,
-      color: '#e8dcc8',
-      textAlign: 'center',
-      marginBottom: '4px',
+      fontFamily: "'Playfair Display', serif", fontSize: isMobile ? '24px' : '22px',
+      fontWeight: 700, color: '#e8dcc8', textAlign: 'center', marginBottom: '4px',
     },
     viewSub: {
-      fontFamily: "'DM Sans', sans-serif",
-      fontSize: '10px',
-      letterSpacing: '0.1em',
-      textTransform: 'uppercase',
-      color: '#6b5c42',
-      textAlign: 'center',
-      marginBottom: '24px',
+      fontFamily: "'DM Sans', sans-serif", fontSize: '10px', letterSpacing: '0.1em',
+      textTransform: 'uppercase', color: '#6b5c42', textAlign: 'center', marginBottom: '24px',
     },
     label: {
-      display: 'block',
-      fontFamily: "'DM Sans', sans-serif",
-      fontSize: '10px',
-      fontWeight: 600,
-      letterSpacing: '0.12em',
-      textTransform: 'uppercase',
-      color: '#6b5c42',
-      marginBottom: '6px',
+      display: 'block', fontFamily: "'DM Sans', sans-serif", fontSize: '10px', fontWeight: 600,
+      letterSpacing: '0.12em', textTransform: 'uppercase', color: '#6b5c42', marginBottom: '6px',
     },
     input: {
-      width: '100%',
-      backgroundColor: '#080a0e',
-      border: '1px solid rgba(255,255,255,0.1)',
-      borderRadius: '3px',
-      padding: isMobile ? '13px 14px' : '10px 12px',
-      color: '#e8dcc8',
-      fontFamily: "'DM Sans', sans-serif",
-      fontSize: isMobile ? '16px' : '13px', 
-      outline: 'none',
-      marginBottom: '16px',
-      WebkitAppearance: 'none', 
+      width: '100%', backgroundColor: '#080a0e', border: '1px solid rgba(255,255,255,0.1)',
+      borderRadius: '3px', padding: isMobile ? '13px 14px' : '10px 12px', color: '#e8dcc8',
+      fontFamily: "'DM Sans', sans-serif", fontSize: isMobile ? '16px' : '13px', 
+      outline: 'none', marginBottom: '16px', WebkitAppearance: 'none', 
     },
     otpInput: {
-      width: '100%',
-      backgroundColor: '#080a0e',
-      border: '1px solid rgba(255,255,255,0.1)',
-      borderRadius: '3px',
-      padding: '12px',
-      color: '#f0c040',
-      fontFamily: "'DM Sans', sans-serif",
-      fontSize: isMobile ? '28px' : '24px',
-      fontWeight: 700,
-      letterSpacing: '0.5em',
-      textAlign: 'center',
-      outline: 'none',
-      marginBottom: '8px',
-      WebkitAppearance: 'none',
+      width: '100%', backgroundColor: '#080a0e', border: '1px solid rgba(255,255,255,0.1)',
+      borderRadius: '3px', padding: '12px', color: '#f0c040', fontFamily: "'DM Sans', sans-serif",
+      fontSize: isMobile ? '28px' : '24px', fontWeight: 700, letterSpacing: '0.5em',
+      textAlign: 'center', outline: 'none', marginBottom: '8px', WebkitAppearance: 'none',
     },
     btnRed: {
-      width: '100%',
-      padding: isMobile ? '14px' : '11px',
-      fontFamily: "'DM Sans', sans-serif",
-      fontSize: '12px',
-      fontWeight: 700,
-      letterSpacing: '0.12em',
-      textTransform: 'uppercase',
-      border: 'none',
-      borderRadius: '3px',
-      cursor: 'pointer',
-      background: 'linear-gradient(90deg, #9b2020, #c0392b)',
-      color: '#ffffff',
-      marginTop: '4px',
-      WebkitTapHighlightColor: 'transparent',
+      width: '100%', padding: isMobile ? '14px' : '11px', fontFamily: "'DM Sans', sans-serif",
+      fontSize: '12px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
+      border: 'none', borderRadius: '3px', cursor: 'pointer',
+      background: 'linear-gradient(90deg, #9b2020, #c0392b)', color: '#ffffff',
+      marginTop: '4px', WebkitTapHighlightColor: 'transparent',
     },
     btnGold: {
-      width: '100%',
-      padding: isMobile ? '14px' : '11px',
-      fontFamily: "'DM Sans', sans-serif",
-      fontSize: '12px',
-      fontWeight: 700,
-      letterSpacing: '0.12em',
-      textTransform: 'uppercase',
-      border: 'none',
-      borderRadius: '3px',
-      cursor: 'pointer',
-      background: 'linear-gradient(90deg, #c9920a, #e8aa20)',
-      color: '#0d0700',
-      marginTop: '4px',
-      WebkitTapHighlightColor: 'transparent',
+      width: '100%', padding: isMobile ? '14px' : '11px', fontFamily: "'DM Sans', sans-serif",
+      fontSize: '12px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
+      border: 'none', borderRadius: '3px', cursor: 'pointer',
+      background: 'linear-gradient(90deg, #c9920a, #e8aa20)', color: '#0d0700',
+      marginTop: '4px', WebkitTapHighlightColor: 'transparent',
     },
     switchRow: {
-      textAlign: 'center',
-      fontFamily: "'DM Sans', sans-serif",
-      fontSize: '13px',
-      color: '#6b5c42',
-      marginTop: '20px',
+      textAlign: 'center', fontFamily: "'DM Sans', sans-serif", fontSize: '13px',
+      color: '#6b5c42', marginTop: '20px',
     },
     switchBtn: {
-      background: 'none',
-      border: 'none',
-      color: '#c9920a',
-      fontWeight: 700,
-      cursor: 'pointer',
-      fontSize: '13px',
-      fontFamily: "'DM Sans', sans-serif",
-      marginLeft: '4px',
-      textDecoration: 'underline',
-      WebkitTapHighlightColor: 'transparent',
+      background: 'none', border: 'none', color: '#c9920a', fontWeight: 700,
+      cursor: 'pointer', fontSize: '13px', fontFamily: "'DM Sans', sans-serif",
+      marginLeft: '4px', textDecoration: 'underline', WebkitTapHighlightColor: 'transparent',
     },
     divider: {
-      height: '1px',
-      background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)',
+      height: '1px', background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)',
       margin: '16px 0',
     },
     alertErr: {
-      fontSize: '12px',
-      padding: '10px 14px',
-      borderRadius: '4px',
-      marginBottom: '16px',
-      textAlign: 'center',
-      background: 'rgba(180,40,30,0.12)',
-      border: '1px solid rgba(200,60,50,0.35)',
-      color: '#e07060',
-      fontFamily: "'DM Sans', sans-serif",
+      fontSize: '12px', padding: '10px 14px', borderRadius: '4px', marginBottom: '16px',
+      textAlign: 'center', background: 'rgba(180,40,30,0.12)', border: '1px solid rgba(200,60,50,0.35)',
+      color: '#e07060', fontFamily: "'DM Sans', sans-serif",
     },
     alertOk: {
-      fontSize: '12px',
-      padding: '10px 14px',
-      borderRadius: '4px',
-      marginBottom: '16px',
-      textAlign: 'center',
-      background: 'rgba(30,140,80,0.10)',
-      border: '1px solid rgba(40,160,90,0.30)',
-      color: '#5dbf8a',
-      fontFamily: "'DM Sans', sans-serif",
-    },
-    // 👇 NEW: Stylish Banner for the Demo OTP 👇
-    demoBanner: {
-      backgroundColor: 'rgba(201, 146, 10, 0.1)',
-      border: '1px dashed rgba(201, 146, 10, 0.5)',
-      borderRadius: '6px',
-      padding: '16px',
-      marginBottom: '24px',
-      textAlign: 'center',
-    },
-    demoBannerLabel: {
-      fontSize: '10px',
-      fontFamily: "'DM Sans', sans-serif",
-      fontWeight: 700,
-      textTransform: 'uppercase',
-      letterSpacing: '0.15em',
-      color: '#e8dcc8',
-      marginBottom: '8px'
-    },
-    demoBannerCode: {
-      fontSize: '28px',
-      fontFamily: "'DM Sans', sans-serif",
-      fontWeight: 800,
-      letterSpacing: '0.2em',
-      color: '#f0c040',
-      textShadow: '0 0 10px rgba(240, 192, 64, 0.3)'
+      fontSize: '12px', padding: '10px 14px', borderRadius: '4px', marginBottom: '16px',
+      textAlign: 'center', background: 'rgba(30,140,80,0.10)', border: '1px solid rgba(40,160,90,0.30)',
+      color: '#5dbf8a', fontFamily: "'DM Sans', sans-serif",
     }
   };
 
@@ -374,15 +242,7 @@ function Login() {
         {view === 'otp' && (
           <div>
             <div style={styles.viewTitle}>Verify Account</div>
-            <div style={styles.viewSub}>Enter the code below</div>
-
-            {/* 👇 NEW: The Demo OTP Banner 👇 */}
-            {demoOtp && (
-              <div style={styles.demoBanner}>
-                <div style={styles.demoBannerLabel}>Demo Mode Generated OTP</div>
-                <div style={styles.demoBannerCode}>{demoOtp}</div>
-              </div>
-            )}
+            <div style={styles.viewSub}>Code auto-filled for Demo Mode</div>
 
             <form onSubmit={handleVerifyOTP}>
               <label style={{ ...styles.label, textAlign: 'center', display: 'block' }}>
@@ -392,7 +252,7 @@ function Login() {
                 type="number"
                 inputMode="numeric"
                 maxLength="6"
-                value={otp}
+                value={otp} // Because we setOtp() above, this input is magically filled!
                 onChange={(e) => setOtp(e.target.value)}
                 style={styles.otpInput}
                 placeholder="------"
@@ -412,7 +272,6 @@ function Login() {
                   setView('register'); 
                   setErrorMessage(''); 
                   setSuccessMessage(''); 
-                  setDemoOtp(null); // Clear it if they go back
                 }}
                 style={styles.switchBtn}
               >
@@ -448,13 +307,9 @@ function Login() {
                   type="button"
                   onClick={() => setFormData({ ...formData, role: 'user' })}
                   style={{
-                    flex: 1,
-                    padding: isMobile ? '12px' : '8px',
-                    fontSize: '10px', fontWeight: 700,
-                    letterSpacing: '0.1em', textTransform: 'uppercase',
-                    borderRadius: '3px', cursor: 'pointer',
-                    fontFamily: "'DM Sans', sans-serif",
-                    WebkitTapHighlightColor: 'transparent',
+                    flex: 1, padding: isMobile ? '12px' : '8px', fontSize: '10px', fontWeight: 700,
+                    letterSpacing: '0.1em', textTransform: 'uppercase', borderRadius: '3px', cursor: 'pointer',
+                    fontFamily: "'DM Sans', sans-serif", WebkitTapHighlightColor: 'transparent',
                     ...(formData.role === 'user'
                       ? { background: 'linear-gradient(90deg,#c9920a,#e8aa20)', color: '#0d0700', border: 'none' }
                       : { background: '#080a0e', color: '#6b5c42', border: '1px solid rgba(255,255,255,0.08)' })
@@ -466,13 +321,9 @@ function Login() {
                   type="button"
                   onClick={() => setFormData({ ...formData, role: 'admin' })}
                   style={{
-                    flex: 1,
-                    padding: isMobile ? '12px' : '8px',
-                    fontSize: '10px', fontWeight: 700,
-                    letterSpacing: '0.1em', textTransform: 'uppercase',
-                    borderRadius: '3px', cursor: 'pointer',
-                    fontFamily: "'DM Sans', sans-serif",
-                    WebkitTapHighlightColor: 'transparent',
+                    flex: 1, padding: isMobile ? '12px' : '8px', fontSize: '10px', fontWeight: 700,
+                    letterSpacing: '0.1em', textTransform: 'uppercase', borderRadius: '3px', cursor: 'pointer',
+                    fontFamily: "'DM Sans', sans-serif", WebkitTapHighlightColor: 'transparent',
                     ...(formData.role === 'admin'
                       ? { background: 'linear-gradient(90deg,#c9920a,#e8aa20)', color: '#0d0700', border: 'none' }
                       : { background: '#080a0e', color: '#6b5c42', border: '1px solid rgba(255,255,255,0.08)' })
@@ -522,7 +373,7 @@ function Login() {
               />
 
               <button type="submit" style={styles.btnRed}>
-                Send OTP
+                Register Account
               </button>
             </form>
 
