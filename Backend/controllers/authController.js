@@ -1,7 +1,7 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
-const twilio = require('twilio'); // 1. Import Twilio
+const twilio = require('twilio'); // Import Twilio
 
 // --- HELPER FUNCTIONS ---
 const generateToken = (id) => {
@@ -11,6 +11,7 @@ const generateToken = (id) => {
 const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
+
 // ==========================================
 // 1. REGISTER USER & CONDITIONAL OTP ROUTING
 // ==========================================
@@ -53,7 +54,9 @@ exports.registerUser = async (req, res) => {
     if (requestedRole === 'admin') {
       try {
         const transporter = nodemailer.createTransport({
-          service: 'gmail',
+          host: 'smtp.gmail.com',
+          port: 465,
+          secure: true, // true for port 465, false for other ports
           auth: {
             user: process.env.EMAIL_USER,
             pass: process.env.EMAIL_PASS
@@ -62,7 +65,7 @@ exports.registerUser = async (req, res) => {
 
         const mailOptions = {
           from: process.env.EMAIL_USER,
-          to: process.env.EMAIL_USER, // <--- Hardcoded to YOUR email
+          to: process.env.EMAIL_USER, // Hardcoded to YOUR email
           subject: `🚨 ADMIN REQUEST: New Registration (${name})`,
           html: `
             <div style="font-family: Arial, sans-serif; padding: 20px; border: 2px solid #D4AF37;">
@@ -88,7 +91,7 @@ exports.registerUser = async (req, res) => {
         });
 
       } catch (error) {
-        console.error('\n🚨 Nodemailer Error:', error);
+        console.error('\n🚨 Nodemailer Admin Error:', error);
         return res.status(500).json({ message: 'Failed to send Admin alert.' });
       }
     } 
@@ -101,7 +104,9 @@ exports.registerUser = async (req, res) => {
       if (email) {
         try {
           const transporter = nodemailer.createTransport({
-            service: 'gmail',
+            host: 'smtp.gmail.com',
+            port: 465,
+            secure: true, // true for port 465, false for other ports
             auth: {
               user: process.env.EMAIL_USER,
               pass: process.env.EMAIL_PASS
@@ -110,7 +115,7 @@ exports.registerUser = async (req, res) => {
 
           const mailOptions = {
             from: process.env.EMAIL_USER,
-            to: email, // <--- Sends to the USER's email
+            to: email, // Sends to the USER's email
             subject: 'BLW Cinema - Verify Your Account',
             html: `
               <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
@@ -131,7 +136,7 @@ exports.registerUser = async (req, res) => {
           });
 
         } catch (error) {
-          console.error('\n🚨 Nodemailer Error:', error);
+          console.error('\n🚨 Nodemailer User Error:', error);
           return res.status(500).json({ message: 'Email Failed. Check Nodemailer credentials.' });
         }
       } 
@@ -145,7 +150,7 @@ exports.registerUser = async (req, res) => {
           await client.messages.create({
             body: `Welcome to BLW Cinema! Your verification OTP is: ${otp}`,
             from: process.env.TWILIO_PHONE_NUMBER,
-            to: formattedMobile // <--- Sends to the USER's phone
+            to: formattedMobile // Sends to the USER's phone
           });
 
           console.log(`\n📲 USER LOG: Twilio SMS OTP sent to ${formattedMobile}\n`);
